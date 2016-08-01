@@ -38,7 +38,18 @@ namespace PoGo.LocationFeeder.Settings
             {
                 settings = new GlobalSettings();
             }
+
+            var firstRun = !File.Exists(configFile);
+
             settings.Save(configFile);
+
+            if (firstRun
+                || settings.Port == 0
+                )
+            {
+                Console.WriteLine($"Invalid configuration detected. \nPlease edit {configFile} and try again");
+                return null;
+            }
 
             return settings;
         }

@@ -133,56 +133,78 @@ namespace PogoLocationFeeder
 
             var discordWebReader = new DiscordWebReader();
 
-            // TODO while stream == null ...
+            try
+            {
+                while (discordWebReader.stream == null)
+                {
+                    Console.WriteLine($"Connection failed. Retrying...");
+                    discordWebReader.InitializeWebClient();
+                    Thread.Sleep(10 * 1000);
+                }
+                    
+                pollDiscordFeed(discordWebReader.stream);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Exception: {e.ToString()}\n\n\n");
+            }
 
-            ReadDiscordStream(discordWebReader.stream);
-
-            Console.ReadKey();
+            Console.WriteLine("(Press any key to exit)");
+            Console.ReadKey(true);
 
         }
 
-        private async void ReadDiscordStream(Stream stream)
+        private void pollDiscordFeed(Stream stream)
         {
-            var encoder = new UTF8Encoding();
-            var buffer = new byte[2048];
-            while (true)
+            int delay = 30 * 1000;
+            var cancellationTokenSource = new CancellationTokenSource();
+            var token = cancellationTokenSource.Token;
+            var listener = Task.Factory.StartNew(async () =>
             {
-                //TODO: Better evented handling of the response stream
-
-                if (stream.CanRead)
+                Thread.Sleep(5 * 1000);
+                while (true)
                 {
-                    int len = stream.Read(buffer, 0, 2048);
-                    if (len > 0)
+                    var encoder = new UTF8Encoding();
+                    var buffer = new byte[2048];
+
+                    for (int retrys = 0; retrys <= 3; retrys++)
                     {
-                        var serverPayload = encoder.GetString(buffer, 0, len);
-                        //Console.WriteLine("text={0}", serverPayload);
-
-                        try
+                        if (stream.CanRead)
                         {
-                            var message = serverPayload.Split(new[] { '\r', '\n' })[2];
-                            if (message.Length == 0) continue;
-
-                            var jsonPayload = message.Substring(5);
-                            //Console.WriteLine($"JSON: {jsonPayload}");
-
-                            var result = JsonConvert.DeserializeObject<DiscordMessage>(jsonPayload);
-                            if (result != null)
+                            int len = stream.Read(buffer, 0, 2048);
+                            if (len > 0)
                             {
-                                Console.WriteLine($"Discord message received: {result.channel_id}: {result.content}");
-                                var pokeSniperList = pokeSniperReader.readAll();
-                                await relayMessageToClients(result.content, "Discord");
+                                var serverPayload = encoder.GetString(buffer, 0, len);
+                                //Console.WriteLine("text={0}", serverPayload);
+
+                                try
+                                {
+                                    var message = serverPayload.Split(new[] { '\r', '\n' })[2];
+                                    if (message.Length == 0) continue;
+
+                                    var jsonPayload = message.Substring(5);
+                                    //Console.WriteLine($"JSON: {jsonPayload}");
+
+                                    var result = JsonConvert.DeserializeObject<DiscordMessage>(jsonPayload);
+                                    if (result != null)
+                                    {
+                                        Console.WriteLine($"Discord message received: {result.channel_id}: {result.content}");
+                                        var pokeSniperList = pokeSniperReader.readAll();
+                                        await relayMessageToClients(result.content, "Discord");
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine($"Exception: {e.ToString()}\n\n\n");
+                                }
                             }
                         }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine($"Exception: {e.ToString()}\n\n\n");
-                        }
-
-                        //Application.Push(text);
+                        if (token.IsCancellationRequested)
+                            break;
+                        Thread.Sleep(delay);
                     }
                 }
-                //System.Threading.Thread.Sleep(250);
-            }
+            }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);   
         }
 
         private void pollPokesniperFeed()

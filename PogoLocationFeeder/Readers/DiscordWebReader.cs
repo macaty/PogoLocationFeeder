@@ -15,15 +15,20 @@ namespace PogoLocationFeeder
             InitializeWebClient();
         }
 
-        private void InitializeWebClient()
+        public void InitializeWebClient()
         {
             var request = WebRequest.Create(new Uri("http://138.68.22.176/messsages"));
             ((HttpWebRequest)request).AllowReadStreamBuffering = false;
-            var response = request.GetResponse();
 
-            //TODO: Automatic retry on fail
-
-            stream = response.GetResponseStream();
+            try
+            {
+                var response = request.GetResponse();
+                stream = response.GetResponseStream();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Exception: {e.ToString()}\n\n\n");
+            }
         }
 
        

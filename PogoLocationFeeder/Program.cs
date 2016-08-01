@@ -3,19 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 using Discord;
-using POGOProtos.Enums;
 using System.Net.Sockets;
 using System.Net;
 using System.Threading;
-using System.Collections;
 using System.IO;
 using Newtonsoft.Json;
 using PogoLocationFeeder.Helper;
 using PoGo.LocationFeeder.Settings;
-using PogoLocationFeeder.DiscordWebReader;
-using System.Globalization;
+using static PogoLocationFeeder.DiscordWebReader;
 
 namespace PogoLocationFeeder
 {
@@ -129,53 +125,64 @@ namespace PogoLocationFeeder
 
             if (settings == null) return;
 
-
-            //_client = new DiscordClient();
-
             StartNet(settings.Port);
             if (settings.usePokeSnipers)
             {
                 pollPokesniperFeed();
             }
 
-            var discordWebReader = new DiscordWebReader.DiscordWebReader();
+            var discordWebReader = new DiscordWebReader();
+
+            // TODO while stream == null ...
+
+            ReadDiscordStream(discordWebReader.stream);
 
             Console.ReadKey();
 
-            /*
-            _client.MessageReceived += async (s, e) =>
-            {
-                if (settings.ServerChannels.Any(x => x.Equals(e.Channel.Name.ToString(), StringComparison.OrdinalIgnoreCase)))
-                {
-                    await relayMessageToClients(e.Message.Text, e.Channel.Name.ToString());
-                }
-            };
-            */
+        }
 
-            /*
-            _client.ExecuteAndWait(async () =>
+        private async void ReadDiscordStream(Stream stream)
+        {
+            var encoder = new UTF8Encoding();
+            var buffer = new byte[2048];
+            while (true)
             {
-                if (settings.useToken && settings.DiscordToken != null)
-                    await _client.Connect(settings.DiscordToken);
-                else if (settings.DiscordUser != null && settings.DiscordPassword != null)
+                //TODO: Better evented handling of the response stream
+
+                if (stream.CanRead)
                 {
-                    try
+                    int len = stream.Read(buffer, 0, 2048);
+                    if (len > 0)
                     {
-                        await _client.Connect(settings.DiscordUser, settings.DiscordPassword);
-                    }
-                    catch
-                    {
-                        Console.WriteLine("Failed to authroize Discord user! Check your config.json and try again.");
-                        Console.ReadKey();
-                        return;
+                        var serverPayload = encoder.GetString(buffer, 0, len);
+                        //Console.WriteLine("text={0}", serverPayload);
+
+                        try
+                        {
+                            var message = serverPayload.Split(new[] { '\r', '\n' })[2];
+                            if (message.Length == 0) continue;
+
+                            var jsonPayload = message.Substring(5);
+                            //Console.WriteLine($"JSON: {jsonPayload}");
+
+                            var result = JsonConvert.DeserializeObject<DiscordMessage>(jsonPayload);
+                            if (result != null)
+                            {
+                                Console.WriteLine($"Discord message received: {result.channel_id}: {result.content}");
+                                var pokeSniperList = pokeSniperReader.readAll();
+                                await relayMessageToClients(result.content, "Discord");
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"Exception: {e.ToString()}\n\n\n");
+                        }
+
+                        //Application.Push(text);
                     }
                 }
-                else
-                {
-                    Console.WriteLine("Please set your logins in the config.json first");
-                }
-            });
-            */
+                //System.Threading.Thread.Sleep(250);
+            }
         }
 
         private void pollPokesniperFeed()

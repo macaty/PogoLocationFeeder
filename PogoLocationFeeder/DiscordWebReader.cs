@@ -21,11 +21,13 @@ namespace PogoLocationFeeder.DiscordWebReader
             using (var streamReader = new StreamReader(args.Result, Encoding.UTF8))
             {
                 var serverPayload = streamReader.ReadLine();
-                var jsonPayload = serverPayload.Substring(5);
 
                 Console.WriteLine("Raw message: {0}", serverPayload.ToString());
-                var message = JsonConvert.DeserializeObject<Message>(jsonPayload);
-                Console.WriteLine("Discord message received: {0}", message.content);
+                var message = JsonConvert.DeserializeObject<Message>(serverPayload);
+                if (message != null)
+                {
+                    Console.WriteLine("Discord message received: {0}", message.content);
+                }
 
                 // TODO: relayMessageToClients(message.content, "Discord");
 

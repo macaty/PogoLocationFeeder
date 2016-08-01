@@ -14,6 +14,7 @@ using System.IO;
 using Newtonsoft.Json;
 using PogoLocationFeeder.Helper;
 using PoGo.LocationFeeder.Settings;
+using PogoLocationFeeder.DiscordWebReader;
 using System.Globalization;
 
 namespace PogoLocationFeeder
@@ -59,10 +60,10 @@ namespace PogoLocationFeeder
         {
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine("PogoLocationFeeder is brought to you via https://github.com/5andr0/PogoLocationFeeder");
+            Console.WriteLine("PogoLocationFeeder is brought to you via https://github.com/5andr0/PogoLocationFeeder/wiki");
             Console.WriteLine("This software is 100% free and open-source.\n");
             Console.WriteLine("Listening...");
-            StartAccept(); 
+            StartAccept();
         }
         private void StartAccept()
         {
@@ -85,7 +86,7 @@ namespace PogoLocationFeeder
             return remoteIpEndPoint.ToString();
         }
 
-        private DiscordClient _client;
+        //private DiscordClient _client;
 
         private async Task feedToClients(List<SniperInfo> snipeList, string channel)
         {
@@ -116,7 +117,7 @@ namespace PogoLocationFeeder
             }
         }
 
-        private async Task relayMessageToClients(string message, string channel)
+        public async Task relayMessageToClients(string message, string channel)
         {
             var snipeList = parser.parseMessage(message);
             await feedToClients(snipeList, channel);
@@ -129,13 +130,19 @@ namespace PogoLocationFeeder
             if (settings == null) return;
 
 
-            _client = new DiscordClient();
+            //_client = new DiscordClient();
 
             StartNet(settings.Port);
             if (settings.usePokeSnipers)
             {
                 pollPokesniperFeed();
             }
+
+            var discordWebReader = new DiscordWebReader.DiscordWebReader();
+
+            Console.ReadKey();
+
+            /*
             _client.MessageReceived += async (s, e) =>
             {
                 if (settings.ServerChannels.Any(x => x.Equals(e.Channel.Name.ToString(), StringComparison.OrdinalIgnoreCase)))
@@ -143,7 +150,9 @@ namespace PogoLocationFeeder
                     await relayMessageToClients(e.Message.Text, e.Channel.Name.ToString());
                 }
             };
+            */
 
+            /*
             _client.ExecuteAndWait(async () =>
             {
                 if (settings.useToken && settings.DiscordToken != null)
@@ -166,6 +175,7 @@ namespace PogoLocationFeeder
                     Console.WriteLine("Please set your logins in the config.json first");
                 }
             });
+            */
         }
 
         private void pollPokesniperFeed()
@@ -184,9 +194,11 @@ namespace PogoLocationFeeder
                         var pokeSniperList = pokeSniperReader.readAll();
                         if (pokeSniperList != null)
                         {
-                            if(pokeSniperList.Any()) {
+                            if (pokeSniperList.Any())
+                            {
                                 await feedToClients(pokeSniperList, "PokeSnipers");
-                            } else
+                            }
+                            else
                             {
                                 Console.WriteLine("No new pokemon on PokeSnipers");
                             }
@@ -201,5 +213,4 @@ namespace PogoLocationFeeder
             }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
     }
-
 }

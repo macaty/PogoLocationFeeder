@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net;
+using System.Threading;
 
 namespace PogoLocationFeeder
 {
@@ -24,6 +25,11 @@ namespace PogoLocationFeeder
             {
                 var response = request.GetResponse();
                 stream = response.GetResponseStream();
+            }
+            catch (WebException e)
+            {
+                Console.WriteLine($"Experiencing connection issues. Throttling...");
+                Thread.Sleep(30 * 1000);
             }
             catch (Exception e)
             {
